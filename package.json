@@ -1,0 +1,24 @@
+{
+  "name": "eleventy-plugin-yamldata",
+  "version": "0.1.0",
+  "description": "Eleventy Plugin which allows using YAML as a local data file",
+  "main": ".eleventy.js",
+  "repository": "https://github.com/gwangyi/eleventy-plugin-yamldata",
+  "author": {
+      "name": "Sungkwang Lee",
+      "email": "gwangyi.kr@gmail.com",
+      "url": "https://gwangyi.github.io"
+  },
+  "license": "MIT",
+  "keywords": [
+      "eleventy",
+      "eleventy-plugin"
+  ],
+  "dependencies": {
+    "js-yaml": "^3.12.0",
+    "lodash.uniq": "^4.5.0"
+  },
+  "peerDependencies": {
+    "@11ty/eleventy": "^0.5.4"
+  }
+}
