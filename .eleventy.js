@@ -37,8 +37,9 @@ module.exports = {
           }, Promise.reject);
         }
         function getTemplateDataFileGlob(original) {
+          var suffix = this.config.jsDataFileSuffix;
           return original.apply(this, arguments).then(function(arr) {
-            return arr.concat([path.join(path.dirname(arr[0]), `*.${this.config.jsDataFileSuffix}.yaml`)]);
+            return arr.concat([path.join(path.dirname(arr[0]), `*${suffix}.yaml`)]);
           }, Promise.reject);
         }
         monkeypatch(TemplateData, getLocalData);
