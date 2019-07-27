@@ -1,6 +1,6 @@
 {
   "name": "eleventy-plugin-yamldata",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Eleventy Plugin which allows using YAML as a local and global data files",
   "main": ".eleventy.js",
   "repository": "https://github.com/gwangyi/eleventy-plugin-yamldata",
