@@ -31,6 +31,7 @@ module.exports = {
         }
       }
 
+      // local data files
       async function getLocalData(original, tmplPath) {
         const [data, localDataPaths] = await Promise.all([
           original.apply(this, [tmplPath]),
@@ -60,6 +61,29 @@ module.exports = {
 
       monkeypatch(TemplateData, getLocalData);
       monkeypatch(TemplateData, getTemplateDataFileGlob);
+
+      // global data files
+      async function getGlobalDataGlob(original) {
+        const dir = await this.getInputDir();
+        const glob = await original.apply(this, arguments);
+        return glob.concat([this._getGlobalDataGlobByExtension(dir, 'yaml')]);
+      }
+
+      async function _getLocalJsonString(_, path) {
+        const object = await yamlFilePathToObject(path);
+        return JSON.stringify(object);
+      }
+
+      function getData(original) {
+        // clear pre-cached data without YAML files
+        this.globalData = null;
+
+        return original.apply(this, arguments);
+      }
+
+      monkeypatch(TemplateData, _getLocalJsonString);
+      monkeypatch(TemplateData, getGlobalDataGlob);
+      monkeypatch(TemplateData, getData);
     });
   }
 };
