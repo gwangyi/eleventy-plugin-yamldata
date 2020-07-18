@@ -1,9 +1,9 @@
-function monkeypatch(cls,fn) {
+function monkeypatch(cls, fn) {
   const orig = cls.prototype[fn.name].__original || cls.prototype[fn.name];
   function wrapped() {
     return fn.bind(this, orig).apply(this, arguments);
   }
-  wrapped.__original = orig
+  wrapped.__original = orig;
 
   cls.prototype[fn.name] = wrapped;
 }
@@ -12,39 +12,78 @@ module.exports = {
   initArguments: {},
   configFunction: function(eleventyConfig, options = {}) {
     setImmediate(function() {
+      const TemplateData = require('@11ty/eleventy/src/TemplateData.js');
+      if (!TemplateData || !TemplateData.prototype) {
+        return;
+      }
+
       const path = require('path');
-      const fs = require('fs');
+      const fs = require('fs').promises;
       const lodashUniq = require('lodash.uniq');
       const jsyaml = require('js-yaml');
-      const TemplateData = require('@11ty/eleventy/src/TemplateData.js');
-      if(TemplateData.prototype) {
-        function getLocalData(original, tmplPath) {
-          return Promise.all([
-            original.apply(this, [tmplPath]),
-            this.getLocalDataPaths(tmplPath)
-          ]) .then(function(args) {
-            const data = args[0];
-            const dataPaths = lodashUniq(args[1].map(function(p) {
-              return p.substr(0, p.length - path.extname(p).length) + '.yaml';
-            }));
-            return Object.assign.apply(null, [data].concat(dataPaths.map(function(fn) {
-              try {
-                return jsyaml.load(fs.readFileSync(fn));
-              } catch (err) {
-                return {};
-              }
-            })));
-          }, Promise.reject);
+
+      async function yamlFilePathToObject(yamlFilePath) {
+        try {
+          const yamlFileContent = await fs.readFile(yamlFilePath, 'utf-8');
+          return jsyaml.load(yamlFileContent);
+        } catch (err) {
+          return {};
         }
-        function getTemplateDataFileGlob(original) {
-          var suffix = this.config.jsDataFileSuffix;
-          return original.apply(this, arguments).then(function(arr) {
-            return arr.concat([path.join(path.dirname(arr[0]), `*${suffix}.yaml`)]);
-          }, Promise.reject);
-        }
-        monkeypatch(TemplateData, getLocalData);
-        monkeypatch(TemplateData, getTemplateDataFileGlob);
       }
+
+      // local data files
+      async function getLocalData(original, tmplPath) {
+        const [data, localDataPaths] = await Promise.all([
+          original.apply(this, [tmplPath]),
+          this.getLocalDataPaths(tmplPath)
+        ]);
+
+        const dataPaths = lodashUniq(
+          localDataPaths.map(
+            p => p.substr(0, p.length - path.extname(p).length) + '.yaml'
+          )
+        );
+
+        const dataFromYamlFiles = await Promise.all(
+          dataPaths.map(yamlFilePathToObject)
+        );
+
+        return Object.assign.apply(null, [data].concat(dataFromYamlFiles));
+      }
+
+      async function getTemplateDataFileGlob(original) {
+        const suffix = this.config.jsDataFileSuffix;
+        const glob = await original.apply(this, arguments);
+        return glob.concat([
+          path.join(path.dirname(glob[0]), `*${suffix}.yaml`)
+        ]);
+      }
+
+      monkeypatch(TemplateData, getLocalData);
+      monkeypatch(TemplateData, getTemplateDataFileGlob);
+
+      // global data files
+      async function getGlobalDataGlob(original) {
+        const dir = await this.getInputDir();
+        const glob = await original.apply(this, arguments);
+        return glob.concat([this._getGlobalDataGlobByExtension(dir, 'yaml')]);
+      }
+
+      async function _getLocalJsonString(_, path) {
+        const object = await yamlFilePathToObject(path);
+        return JSON.stringify(object);
+      }
+
+      function getData(original) {
+        // clear pre-cached data without YAML files
+        this.globalData = null;
+
+        return original.apply(this, arguments);
+      }
+
+      monkeypatch(TemplateData, _getLocalJsonString);
+      monkeypatch(TemplateData, getGlobalDataGlob);
+      monkeypatch(TemplateData, getData);
     });
   }
 };
